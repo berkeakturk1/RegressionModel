@@ -10,15 +10,6 @@ This is a full-stack web application for simulating and predicting Turkish Cup f
 
 ---
 
-## 📂 Project Structure
-
-RegressionModel/
-├── backend/           # Flask API + ML models
-├── frontend/          # React app (deployed on Firebase)
-└── README.md
-
----
-
 ## ⚙️ Tech Stack
 
 - **Frontend:** React + Tailwind CSS
