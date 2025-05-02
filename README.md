@@ -1,91 +1,70 @@
-# Turkish Cup Tournament Simulator 🏆⚽
+# Turkish Cup Match Predictor 🏆
 
-This is a full-stack football tournament simulator that models a fictional **Turkish Cup** using historical Süper Lig data. It includes group and knockout stages, match predictions powered by a trained ML model, and an interactive frontend UI.
-
-## 📦 Features
-
-### 🖥️ Frontend (React + Firebase)
-- Simulates full Turkish Cup tournaments
-- Group stage and knockout bracket view
-- Goal scorers and in-match timelines
-- Team statistics and top scorers
-- Fully responsive design (TailwindCSS)
-- Hosted on Firebase
-
-### 🧠 Backend (Flask + ML)
-- Trained on Turkish Super League match data
-- Predicts match scores using Random Forest regressors
-- Exposes API endpoints for predictions and statistics
-- Designed to run on AWS EC2 (or any server)
+This is a full-stack web application for simulating and predicting Turkish Cup football matches. It features a group and knockout stage tournament system, team statistics, goal predictions, and more — all powered by machine learning models on the backend.
 
 ---
 
-## 🔧 Technologies Used
+## 🖥 Live Site
 
-| Layer     | Stack                                         |
-|-----------|-----------------------------------------------|
-| Frontend  | React, TailwindCSS, Recharts, Firebase Hosting |
-| Backend   | Flask, Pandas, Scikit-learn, joblib, CORS     |
-| ML Model  | RandomForestRegressor from scikit-learn       |
-| Dataset   | Turkish Süper Lig historical match results    |
+**Frontend:** [https://regressionmodel-c672f.web.app](https://regressionmodel-c672f.web.app)
 
 ---
 
-## 📁 Project Structure
+## 📂 Project Structure
 
-RegessionModel/
-│
-├── backend/                # Flask API with ML model
-│   ├── app.py              # Main Flask app
-│   ├── tsl_dataset.csv     # Dataset used for training
-│   └── models/             # Saved models and dataset
-│
-├── frontend/               # React frontend
-│   ├── public/             # Static files
-│   ├── src/                # React components and pages
-│   └── firebase.json       # Firebase hosting config
-│
-├── requirements.txt        # Python dependencies
-└── README.md               # You’re here!
+RegressionModel/
+├── backend/           # Flask API + ML models
+├── frontend/          # React app (deployed on Firebase)
+└── README.md
 
 ---
 
-## 🚀 Deployment
+## ⚙️ Tech Stack
 
-### ✅ Frontend (Firebase)
+- **Frontend:** React + Tailwind CSS
+- **Backend:** Flask + Scikit-learn (hosted on EC2)
+- **ML Models:** RandomForestRegressor
+- **Hosting:** Firebase (frontend), Amazon EC2 (backend)
+- **CI/CD:** Firebase Hosting GitHub integration
+
+---
+
+## 🚀 Features
+
+- Group and knockout stage simulation
+- Match score prediction using ML
+- Penalty shootout simulation for draws in knockouts
+- Match detail modals with scorers and minute-by-minute events
+- Top scorers leaderboard and performance chart
+
+---
+
+## 📦 Installation
+
+### Frontend
+
 ```bash
 cd frontend
 npm install
-npm run build
-firebase deploy
+npm start
 
-✅ Backend (EC2)
+Backend
 
 cd backend
-python3 -m venv venv
-source venv/bin/activate
 pip install -r requirements.txt
 python app.py
 
-Make sure EC2 allows inbound traffic to port 5000 or proxy it behind Nginx.
-
-⸻
-
-🔗 Live Demo
-
-Frontend: https://your-firebase-url.web.app
-Backend: Deployed separately on EC2 (not publicly linked)
-
-⸻
-
-📣 Credits
-	•	Turkish Süper Lig dataset by faruky on Kaggle
-	•	Built by Berke Aktürk as a full-stack sports analytics project.
 
 ⸻
 
 📬 Contact
 
-If you have questions or suggestions, feel free to reach out at:
-📧 contact [at] berkeakturk.com 
-🌐 github.com/berkeakturk1
+Feel free to reach out for suggestions or questions:
+📧 contact [at] berkeakturk.com
+
+⸻
+
+📄 License
+
+This project is open source and free to use under the MIT License.
+
