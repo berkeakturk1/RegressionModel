@@ -38,13 +38,15 @@ This is a full-stack web application for simulating and predicting Turkish Cup f
 cd frontend
 npm install
 npm start
+```
 
-Backend
+### Backend
 
+```bash
 cd backend
 pip install -r requirements.txt
 python app.py
-
+```
 
 ⸻
 
@@ -58,4 +60,5 @@ Feel free to reach out for suggestions or questions:
 📄 License
 
 This project is open source and free to use under the MIT License.
+
 
