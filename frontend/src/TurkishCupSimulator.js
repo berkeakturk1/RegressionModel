@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import _ from 'lodash';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-const API_URL = 'http://127.0.0.1:5000/api';
+const API_URL = 'https://regressionmodel.duckdns.org/api';//'http://ec2-16-171-14-181.eu-north-1.compute.amazonaws.com:5000/api';
 
 // Turkish team names
 const ALL_TEAMS = [
