@@ -79,47 +79,71 @@ def prepare_features(df):
 # Load existing models
 def load_existing_models():
     global home_goals_model, away_goals_model, teams, dataset
-
+    
     try:
-        # Correct file names
-        home_model_path = 'models/home_goals_model.pkl'
-        away_model_path = 'models/away_goals_model.pkl'
-
-        if not os.path.exists(home_model_path) or not os.path.exists(away_model_path):
-            return False, "Model files not found"
-
+        # Check if models exist
+        if not os.path.exists('models/model_home.pkl') or not os.path.exists('models/model_away.pkl'):
+            return False, "Models not found"
+        
         # Load models
-        home_goals_model = joblib.load(home_model_path)
-        away_goals_model = joblib.load(away_model_path)
-        print("✅ Models loaded successfully")
-
-        # Load teams list
+        home_goals_model = joblib.load('models/model_home.pkl')
+        away_goals_model = joblib.load('models/model_away.pkl')
+        
+        # If teams list is not yet populated, try to get it from the dataset
         if not teams:
+            # Try to load teams list if available
             if os.path.exists('models/teams.txt'):
                 with open('models/teams.txt', 'r') as f:
                     teams = [line.strip() for line in f.readlines()]
-                    print("✅ Teams loaded from teams.txt")
-            elif os.path.exists('models/dataset.csv'):
+            
+            # If still no teams, try to load from dataset
+            if not teams and os.path.exists('models/dataset.csv'):
+                # Load the dataset
                 temp_dataset = pd.read_csv('models/dataset.csv')
+                # Extract teams from the dataset
                 if 'Home' in temp_dataset.columns and 'Away' in temp_dataset.columns:
                     teams = sorted(list(set(temp_dataset['Home'].unique()) | set(temp_dataset['Away'].unique())))
-                    print("✅ Teams extracted from dataset.csv")
-
-        # Load dataset
+            
+            # If still no teams, try to load from the original dataset path
+            if not teams:
+                # Default dataset path - UPDATE THIS to your actual path
+                dataset_path = 'tsl_dataset.csv'
+                
+                if os.path.exists(dataset_path):
+                    try:
+                        # Load the dataset
+                        temp_dataset = pd.read_csv(dataset_path)
+                        # Basic preprocessing
+                        temp_dataset = temp_dataset.dropna(subset=['Home', 'Away'])
+                        # Extract teams from the dataset
+                        teams = sorted(list(set(temp_dataset['Home'].unique()) | set(temp_dataset['Away'].unique())))
+                    except Exception as dataset_error:
+                        print(f"Error loading from original dataset: {dataset_error}")
+            
+            # If still no teams, use dummy data as fallback
+            if not teams:
+                teams = [
+                    "Fallback",
+                ]
+                print("Using fallback team list since no dataset was available")
+        
+        # Try to load dataset if available
         if dataset is None and os.path.exists('models/dataset.csv'):
             dataset = pd.read_csv('models/dataset.csv')
             dataset = preprocess_data(dataset)
-            print("✅ Dataset loaded and preprocessed")
-
-        # Fallback if teams still not loaded
-        if not teams:
-            teams = ["FallbackTeam"]
-            print("⚠️ Using fallback team list")
-
+        
         return True, "Models loaded successfully"
-
+    
     except Exception as e:
-        print(f"❌ Error loading models: {e}")
+        # If there was an error loading models, still try to populate teams
+        if not teams:
+            teams = [
+                "Galatasaray", "Fenerbahçe", "Beşiktaş", "Trabzonspor", 
+                "İstanbul Başakşehir", "Adana Demirspor", "Antalyaspor", 
+                "Konyaspor", "Kayserispor", "Hatayspor"
+            ]
+            print("Using fallback team list due to error")
+        
         return False, str(e)
     
 # Predict match result
