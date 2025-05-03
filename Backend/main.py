@@ -8,7 +8,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "https://regressionmodel-c672f.web.app"}})
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
 # Global variables to store models and data
 home_goals_model = None
@@ -270,16 +270,32 @@ def get_statistical_data(home_team, away_team):
 # API Routes
 @app.route('/api/train', methods=['POST'])
 def api_train():
-    # Ignore frontend request body entirely
-    dataset_path = './tsl_dataset.csv'  # always use local dataset inside backend folder
+    # Define the path more carefully
+    dataset_path = os.path.abspath('./tsl_dataset.csv')
     
-    success, message = train_models(dataset_path)
+    # Check if file exists
+    if not os.path.exists(dataset_path):
+        return jsonify({
+            'success': False,
+            'message': f'Dataset file not found at {dataset_path}',
+            'teams': []
+        }), 404
     
-    return jsonify({
-        'success': success,
-        'message': message,
-        'teams': teams if success else []
-    })
+    try:
+        success, message = train_models(dataset_path)
+        
+        return jsonify({
+            'success': success,
+            'message': message,
+            'teams': teams if success else []
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error: {str(e)}',
+            'teams': []
+        }), 500
+    
 
 @app.route('/api/load_models', methods=['GET'])
 def api_load_models():
