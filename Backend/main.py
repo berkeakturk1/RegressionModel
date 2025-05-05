@@ -10,53 +10,17 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
-# Global variables to store models and data
+# Global state
 home_goals_model = None
 away_goals_model = None
 teams = []
 dataset = None
-
-# Load dataset and train models
-def train_models(dataset_path):
-    global home_goals_model, away_goals_model, teams, dataset
-    
-    try:
-        # Load the dataset
-        dataset = pd.read_csv(dataset_path)
-        
-        # Clean and prepare data
-        dataset = preprocess_data(dataset)
-        
-        # Extract list of teams
-        teams = sorted(list(set(dataset['Home'].unique()) | set(dataset['Away'].unique())))
-        
-        # Prepare feature matrix
-        X = prepare_features(dataset)
-        
-        # Train home goals model
-        home_goals_model = RandomForestRegressor(n_estimators=100, random_state=42)
-        home_goals_model.fit(X, dataset['HomeGoals'])
-        
-        # Train away goals model
-        away_goals_model = RandomForestRegressor(n_estimators=100, random_state=42)
-        away_goals_model.fit(X, dataset['AwayGoals'])
-        
-        # Save models
-        os.makedirs('models', exist_ok=True)
-        joblib.dump(home_goals_model, 'models/home_goals_model.pkl')
-        joblib.dump(away_goals_model, 'models/away_goals_model.pkl')
-        
-        return True, "Models trained successfully"
-    
-    except Exception as e:
-        return False, str(e)
 
 # Preprocess the dataset
 def preprocess_data(df):
     df = df.copy()
     df = df.dropna(subset=['Home', 'Away', 'HomeGoals', 'AwayGoals'])
 
-    # Rename to match frontend keys and prediction-time naming
     df.rename(columns={
         'Home': 'homeTeam',
         'Away': 'awayTeam',
@@ -66,257 +30,184 @@ def preprocess_data(df):
         'AwayRedCards': 'awayRedCards'
     }, inplace=True)
 
-    if 'homeRedCards' not in df.columns:
-        df['homeRedCards'] = 0
-    if 'awayRedCards' not in df.columns:
-        df['awayRedCards'] = 0
+    df['homeRedCards'] = df.get('homeRedCards', 0)
+    df['awayRedCards'] = df.get('awayRedCards', 0)
 
     return df
 
+# Prepare one-hot encoded features
 def prepare_features(df):
     home_dummies = pd.get_dummies(df['homeTeam'], prefix='home')
     away_dummies = pd.get_dummies(df['awayTeam'], prefix='away')
-    features = pd.concat([home_dummies, away_dummies, df[['homeRedCards', 'awayRedCards']]], axis=1)
-    return features
+    return pd.concat([home_dummies, away_dummies, df[['homeRedCards', 'awayRedCards']]], axis=1)
 
-# Load existing models
+# Train and save models
+def train_models(dataset_path):
+    global home_goals_model, away_goals_model, teams, dataset
+
+    try:
+        dataset = pd.read_csv(dataset_path)
+        dataset = preprocess_data(dataset)
+
+        teams = sorted(list(set(dataset['homeTeam'].unique()) | set(dataset['awayTeam'].unique())))
+        X = prepare_features(dataset)
+
+        home_goals_model = RandomForestRegressor(n_estimators=100, random_state=42)
+        home_goals_model.fit(X, dataset['homeGoals'])
+
+        away_goals_model = RandomForestRegressor(n_estimators=100, random_state=42)
+        away_goals_model.fit(X, dataset['awayGoals'])
+
+        os.makedirs('models', exist_ok=True)
+        joblib.dump(home_goals_model, 'models/home_goals_model.pkl')
+        joblib.dump(away_goals_model, 'models/away_goals_model.pkl')
+        dataset.to_csv('models/dataset.csv', index=False)
+
+        with open('models/teams.txt', 'w') as f:
+            f.writelines([t + '\n' for t in teams])
+
+        return True, "Models trained successfully"
+    except Exception as e:
+        return False, str(e)
+
+# Load saved models
 def load_existing_models():
     global home_goals_model, away_goals_model, teams, dataset
-    
+
     try:
-        # Check if models exist
-        if not os.path.exists('models/model_home.pkl') or not os.path.exists('models/model_away.pkl'):
-            return False, "Models not found"
-        
-        # Load models
-        home_goals_model = joblib.load('models/model_home.pkl')
-        away_goals_model = joblib.load('models/model_away.pkl')
-        
-        # If teams list is not yet populated, try to get it from the dataset
-        if not teams:
-            # Try to load teams list if available
-            if os.path.exists('models/teams.txt'):
-                with open('models/teams.txt', 'r') as f:
-                    teams = [line.strip() for line in f.readlines()]
-            
-            # If still no teams, try to load from dataset
-            if not teams and os.path.exists('models/dataset.csv'):
-                # Load the dataset
-                temp_dataset = pd.read_csv('models/dataset.csv')
-                # Extract teams from the dataset
-                if 'Home' in temp_dataset.columns and 'Away' in temp_dataset.columns:
-                    teams = sorted(list(set(temp_dataset['Home'].unique()) | set(temp_dataset['Away'].unique())))
-            
-            # If still no teams, try to load from the original dataset path
-            if not teams:
-                # Default dataset path - UPDATE THIS to your actual path
-                dataset_path = 'tsl_dataset.csv'
-                
-                if os.path.exists(dataset_path):
-                    try:
-                        # Load the dataset
-                        temp_dataset = pd.read_csv(dataset_path)
-                        # Basic preprocessing
-                        temp_dataset = temp_dataset.dropna(subset=['Home', 'Away'])
-                        # Extract teams from the dataset
-                        teams = sorted(list(set(temp_dataset['Home'].unique()) | set(temp_dataset['Away'].unique())))
-                    except Exception as dataset_error:
-                        print(f"Error loading from original dataset: {dataset_error}")
-            
-            # If still no teams, use dummy data as fallback
-            if not teams:
-                teams = [
-                    "Fallback",
-                ]
-                print("Using fallback team list since no dataset was available")
-        
-        # Try to load dataset if available
-        if dataset is None and os.path.exists('models/dataset.csv'):
+        home_goals_model = joblib.load('models/home_goals_model.pkl')
+        away_goals_model = joblib.load('models/away_goals_model.pkl')
+
+        if os.path.exists('models/teams.txt'):
+            with open('models/teams.txt', 'r') as f:
+                teams = [line.strip() for line in f.readlines()]
+
+        if os.path.exists('models/dataset.csv'):
             dataset = pd.read_csv('models/dataset.csv')
             dataset = preprocess_data(dataset)
-        
+
         return True, "Models loaded successfully"
-    
     except Exception as e:
-        # If there was an error loading models, still try to populate teams
-        if not teams:
-            teams = [
-                "Galatasaray", "Fenerbahçe", "Beşiktaş", "Trabzonspor", 
-                "İstanbul Başakşehir", "Adana Demirspor", "Antalyaspor", 
-                "Konyaspor", "Kayserispor", "Hatayspor"
-            ]
-            print("Using fallback team list due to error")
-        
         return False, str(e)
-    
-# Predict match result
+
+# Predict a single match
 def predict_match(home_team, away_team, home_red_cards, away_red_cards):
-    print(f"[DEBUG] predict_match called with: home={home_team}, away={away_team}, red_cards={home_red_cards}-{away_red_cards}")
     if home_goals_model is None or away_goals_model is None:
         return False, "Models not loaded", None
-    
+
     try:
-        # Create feature vector for this match
-        feature_vector = pd.DataFrame(columns=[f'home_{team}' for team in teams] + 
-                                     [f'away_{team}' for team in teams] + 
-                                     ['HomeRedCards', 'AwayRedCards'])
-        
-        # Initialize with zeros
-        feature_vector.loc[0] = [0] * len(feature_vector.columns)
-        
-        # Set team indicators
+        feature_vector = pd.DataFrame(columns=[f'home_{t}' for t in teams] + [f'away_{t}' for t in teams] + ['homeRedCards', 'awayRedCards'])
+        feature_vector.loc[0] = 0
+
         if f'home_{home_team}' in feature_vector.columns:
             feature_vector[f'home_{home_team}'] = 1
         if f'away_{away_team}' in feature_vector.columns:
             feature_vector[f'away_{away_team}'] = 1
-        
-        # Set red cards
-        feature_vector['HomeRedCards'] = home_red_cards
-        feature_vector['AwayRedCards'] = away_red_cards
-        
-        # Make predictions
-        predicted_home_goals = max(0, round(home_goals_model.predict(feature_vector)[0]))
-        predicted_away_goals = max(0, round(away_goals_model.predict(feature_vector)[0]))
-        
+
+        feature_vector['homeRedCards'] = home_red_cards
+        feature_vector['awayRedCards'] = away_red_cards
+
+        predicted_home_goals = round(home_goals_model.predict(feature_vector)[0])
+        predicted_away_goals = round(away_goals_model.predict(feature_vector)[0])
+
         return True, "Prediction successful", {
             'homeTeam': home_team,
             'awayTeam': away_team,
             'homeRedCards': home_red_cards,
             'awayRedCards': away_red_cards,
-            'predictedHomeGoals': int(predicted_home_goals),
-            'predictedAwayGoals': int(predicted_away_goals)
+            'predictedHomeGoals': predicted_home_goals,
+            'predictedAwayGoals': predicted_away_goals
         }
-    
     except Exception as e:
         return False, str(e), None
 
-# Get statistical analysis data
+# Get evaluation metrics + team stats
 def get_statistical_data(home_team, away_team):
     if dataset is None or home_goals_model is None or away_goals_model is None:
-        return False, "No dataset or models available"
-    
+        return False, "No dataset or models loaded"
+
     try:
-        # Prepare metrics
         X = prepare_features(dataset)
         home_preds = home_goals_model.predict(X)
         away_preds = away_goals_model.predict(X)
-        
-        home_mse = mean_squared_error(dataset['HomeGoals'], home_preds)
-        away_mse = mean_squared_error(dataset['AwayGoals'], away_preds)
-        home_mae = mean_absolute_error(dataset['HomeGoals'], home_preds)
-        away_mae = mean_absolute_error(dataset['AwayGoals'], away_preds)
-        home_r2 = r2_score(dataset['HomeGoals'], home_preds)
-        away_r2 = r2_score(dataset['AwayGoals'], away_preds)
-        
-        # Generate regression data
-        regression_data = []
-        for i in range(min(100, len(dataset))):  # Limit to 100 samples
-            regression_data.append({
+
+        regression_data = [
+            {
                 'predicted': float(home_preds[i]),
-                'actual': float(dataset['HomeGoals'].iloc[i]),
+                'actual': float(dataset['homeGoals'].iloc[i]),
                 'index': i
-            })
-        
-        # Generate team stats
-        home_matches = dataset[dataset['Home'] == home_team]
-        away_matches = dataset[dataset['Away'] == away_team]
-        
+            } for i in range(min(100, len(dataset)))
+        ]
+
+        metrics = {
+            'homeGoalsMSE': mean_squared_error(dataset['homeGoals'], home_preds),
+            'awayGoalsMSE': mean_squared_error(dataset['awayGoals'], away_preds),
+            'homeGoalsMAE': mean_absolute_error(dataset['homeGoals'], home_preds),
+            'awayGoalsMAE': mean_absolute_error(dataset['awayGoals'], away_preds),
+            'homeGoalsR2': r2_score(dataset['homeGoals'], home_preds),
+            'awayGoalsR2': r2_score(dataset['awayGoals'], away_preds),
+        }
+
+        home_matches = dataset[dataset['homeTeam'] == home_team]
+        away_matches = dataset[dataset['awayTeam'] == away_team]
+
         home_team_stats = {
             'name': home_team,
-            'avgHomeGoals': float(home_matches['HomeGoals'].mean()) if len(home_matches) > 0 else 0,
-            'avgHomeGoalsAgainst': float(home_matches['AwayGoals'].mean()) if len(home_matches) > 0 else 0,
-            'homeWinRate': float((home_matches['HomeGoals'] > home_matches['AwayGoals']).mean()) if len(home_matches) > 0 else 0,
-            'homeDrawRate': float((home_matches['HomeGoals'] == home_matches['AwayGoals']).mean()) if len(home_matches) > 0 else 0,
-            'homeLossRate': float((home_matches['HomeGoals'] < home_matches['AwayGoals']).mean()) if len(home_matches) > 0 else 0
+            'avgHomeGoals': home_matches['homeGoals'].mean(),
+            'avgHomeGoalsAgainst': home_matches['awayGoals'].mean(),
+            'homeWinRate': (home_matches['homeGoals'] > home_matches['awayGoals']).mean(),
+            'homeDrawRate': (home_matches['homeGoals'] == home_matches['awayGoals']).mean(),
+            'homeLossRate': (home_matches['homeGoals'] < home_matches['awayGoals']).mean()
         }
-        
+
         away_team_stats = {
             'name': away_team,
-            'avgAwayGoals': float(away_matches['AwayGoals'].mean()) if len(away_matches) > 0 else 0,
-            'avgAwayGoalsAgainst': float(away_matches['HomeGoals'].mean()) if len(away_matches) > 0 else 0,
-            'awayWinRate': float((away_matches['AwayGoals'] > away_matches['HomeGoals']).mean()) if len(away_matches) > 0 else 0,
-            'awayDrawRate': float((away_matches['AwayGoals'] == away_matches['HomeGoals']).mean()) if len(away_matches) > 0 else 0,
-            'awayLossRate': float((away_matches['AwayGoals'] < away_matches['HomeGoals']).mean()) if len(away_matches) > 0 else 0
+            'avgAwayGoals': away_matches['awayGoals'].mean(),
+            'avgAwayGoalsAgainst': away_matches['homeGoals'].mean(),
+            'awayWinRate': (away_matches['awayGoals'] > away_matches['homeGoals']).mean(),
+            'awayDrawRate': (away_matches['awayGoals'] == away_matches['homeGoals']).mean(),
+            'awayLossRate': (away_matches['awayGoals'] < away_matches['homeGoals']).mean()
         }
-        
-        # Get top team stats for comparison
-        top_teams = dataset['Home'].value_counts().head(5).index.tolist()
+
+        top_teams = dataset['homeTeam'].value_counts().head(5).index.tolist()
         team_goal_stats = []
-        
+
         for team in top_teams:
-            home_data = dataset[dataset['Home'] == team]
-            away_data = dataset[dataset['Away'] == team]
-            
             team_goal_stats.append({
                 'team': team,
-                'homeGoals': float(home_data['HomeGoals'].mean()) if len(home_data) > 0 else 0,
-                'awayGoals': float(away_data['AwayGoals'].mean()) if len(away_data) > 0 else 0
+                'homeGoals': dataset[dataset['homeTeam'] == team]['homeGoals'].mean(),
+                'awayGoals': dataset[dataset['awayTeam'] == team]['awayGoals'].mean()
             })
-        
+
         return True, {
-            'metrics': {
-                'homeGoalsMSE': home_mse,
-                'awayGoalsMSE': away_mse,
-                'homeGoalsMAE': home_mae,
-                'awayGoalsMAE': away_mae,
-                'homeGoalsR2': home_r2,
-                'awayGoalsR2': away_r2
-            },
+            'metrics': metrics,
             'regressionData': regression_data,
             'teamStats': team_goal_stats,
             'homeTeam': home_team_stats,
             'awayTeam': away_team_stats
         }
-    
     except Exception as e:
         return False, str(e)
 
-# API Routes
+# ---------- ROUTES ----------
+
 @app.route('/api/train', methods=['POST'])
 def api_train():
-    # Define the path more carefully
     dataset_path = os.path.abspath('./tsl_dataset.csv')
-    
-    # Check if file exists
     if not os.path.exists(dataset_path):
-        return jsonify({
-            'success': False,
-            'message': f'Dataset file not found at {dataset_path}',
-            'teams': []
-        }), 404
-    
-    try:
-        success, message = train_models(dataset_path)
-        
-        return jsonify({
-            'success': success,
-            'message': message,
-            'teams': teams if success else []
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'Error: {str(e)}',
-            'teams': []
-        }), 500
-    
+        return jsonify({'success': False, 'message': 'Dataset file not found.', 'teams': []}), 404
+
+    success, message = train_models(dataset_path)
+    return jsonify({'success': success, 'message': message, 'teams': teams if success else []})
 
 @app.route('/api/load_models', methods=['GET'])
 def api_load_models():
     success, message = load_existing_models()
-    
-    return jsonify({
-        'success': success,
-        'message': message,
-        'teams': teams if success else []
-    })
+    return jsonify({'success': success, 'message': message, 'teams': teams if success else []})
 
 @app.route('/api/teams', methods=['GET'])
 def api_get_teams():
-    return jsonify({
-        'success': True,
-        'teams': teams
-    })
+    return jsonify({'success': True, 'teams': teams})
 
 @app.route('/api/predict', methods=['POST'])
 def api_predict():
@@ -325,45 +216,28 @@ def api_predict():
     away_team = data.get('awayTeam')
     home_red_cards = data.get('homeRedCards', 0)
     away_red_cards = data.get('awayRedCards', 0)
-    
-
-    print("[API] /api/predict endpoint hit")
-    print("Received data:", data)
 
     if not home_team or not away_team:
-        return jsonify({'success': False, 'error': 'Home team and away team are required'})
-    
+        return jsonify({'success': False, 'error': 'Both teams are required'})
+
     success, message, prediction = predict_match(home_team, away_team, home_red_cards, away_red_cards)
-    
-    return jsonify({
-        'success': success,
-        'message': message,
-        'prediction': prediction
-    })
+    return jsonify({'success': success, 'message': message, 'prediction': prediction})
 
 @app.route('/api/stats', methods=['POST'])
 def api_get_stats():
     data = request.json
     home_team = data.get('homeTeam')
     away_team = data.get('awayTeam')
-    
+
     if not home_team or not away_team:
-        return jsonify({'success': False, 'error': 'Home team and away team are required'})
-    
+        return jsonify({'success': False, 'error': 'Both teams are required'})
+
     success, result = get_statistical_data(home_team, away_team)
-    
     if success:
-        return jsonify({
-            'success': True,
-            'modelStats': result
-        })
+        return jsonify({'success': True, 'modelStats': result})
     else:
-        return jsonify({
-            'success': False,
-            'error': result
-        })
+        return jsonify({'success': False, 'error': result})
 
 if __name__ == '__main__':
-    # Try to load existing models on startup
     load_existing_models()
     app.run(debug=True)
