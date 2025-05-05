@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import _ from 'lodash';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter } from 'recharts';
-
+import './App.css';
 const API_URL = 'https://regressionmodel.duckdns.org/api';
 
 const MatchPredictor = () => {
@@ -17,19 +17,18 @@ const MatchPredictor = () => {
   const [modelStatus, setModelStatus] = useState('');
   const [error, setError] = useState('');
   
-  // State for statistics and visualization
+  // New state for statistics and visualization
   const [showDetails, setShowDetails] = useState(false);
   const [statisticalData, setStatisticalData] = useState(null);
   const [teamStats, setTeamStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(false);
   
-  // Improved fetch prediction from the Flask API
+  // Fetch prediction from the Flask API
   const predictMatch = async (home, away, homeRed, awayRed) => {
     setIsLoading(true);
     setError('');
     
     try {
-      console.log(`Sending prediction request for ${home} vs ${away}`);
       const response = await fetch(`${API_URL}/predict`, {
         method: 'POST',
         headers: {
@@ -38,48 +37,37 @@ const MatchPredictor = () => {
         body: JSON.stringify({
           homeTeam: home,
           awayTeam: away,
-          homeRedCards: parseInt(homeRed),
-          awayRedCards: parseInt(awayRed)
+          homeRedCards: homeRed,
+          awayRedCards: awayRed
         }),
       });
       
-      // Log the raw response for debugging
-      const responseText = await response.text();
-      console.log('Raw API response:', responseText);
+      const data = await response.json();
       
-      try {
-        const data = JSON.parse(responseText);
+      if (data.success) {
+        const prediction = {
+          ...data.prediction,
+          timestamp: new Date().toLocaleString()
+        };
         
-        if (data.success) {
-          const prediction = {
-            ...data.prediction,
-            timestamp: new Date().toLocaleString()
-          };
-          
-          setCurrentPrediction(prediction);
-          setPredictions(prev => [prediction, ...prev]);
-          
-          // When we have a prediction, fetch the statistical data
-          if (data.prediction) {
-            fetchStatisticalData(home, away);
-          }
-        } else {
-          setError(data.error || data.message || 'Failed to get prediction');
-          console.error('Error from API:', data.error || data.message);
+        setCurrentPrediction(prediction);
+        setPredictions(prev => [prediction, ...prev]);
+        
+        // When we have a prediction, fetch the statistical data
+        if (data.prediction) {
+          fetchStatisticalData(home, away);
         }
-      } catch (parseError) {
-        setError('Failed to parse API response: ' + parseError.message);
-        console.error('Parse error:', parseError);
+      } else {
+        setError(data.error || 'Failed to get prediction');
       }
     } catch (err) {
       setError('Network error: ' + err.message);
-      console.error('Network error:', err);
     } finally {
       setIsLoading(false);
     }
   };
   
-  // Improved function to fetch statistical data
+  // New function to fetch statistical data
   const fetchStatisticalData = async (homeTeam, awayTeam) => {
     setLoadingStats(true);
     
@@ -95,20 +83,13 @@ const MatchPredictor = () => {
         }),
       });
       
-      const responseText = await response.text();
+      const data = await response.json();
       
-      try {
-        const data = JSON.parse(responseText);
-        
-        if (data.success) {
-          setStatisticalData(data.modelStats);
-          setTeamStats(data.teamStats);
-        } else {
-          console.error('Failed to fetch statistical data:', data.error || data.message);
-          // Don't show error to user, just log it
-        }
-      } catch (parseError) {
-        console.error('Error parsing stats response:', parseError);
+      if (data.success) {
+        setStatisticalData(data.modelStats);
+        setTeamStats(data.teamStats);
+      } else {
+        console.error('Failed to fetch statistical data');
       }
     } catch (err) {
       console.error('Error fetching statistical data:', err);
@@ -117,7 +98,7 @@ const MatchPredictor = () => {
     }
   };
   
-  // Improved train model function
+  // Train the model
   const trainModel = async () => {
     setModelStatus('Training model...');
     setError('');
@@ -128,96 +109,75 @@ const MatchPredictor = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}), // Send empty object instead of no body
+        // ❗ No body!
       });
       
-      const responseText = await response.text();
+      const data = await response.json();
       
-      try {
-        const data = JSON.parse(responseText);
+      if (data.success) {
+        setModelStatus('Model trained successfully!');
+        setTeams(data.teams);
         
-        if (data.success) {
-          setModelStatus('Model trained successfully!');
-          setTeams(data.teams);
-          
-          if (data.teams.length >= 2) {
-            setHomeTeam(data.teams[0]);
-            setAwayTeam(data.teams[1]);
-          }
-        } else {
-          setError(data.error || data.message || 'Failed to train model');
-          setModelStatus('Training failed');
+        if (data.teams.length >= 2) {
+          setHomeTeam(data.teams[0]);
+          setAwayTeam(data.teams[1]);
         }
-      } catch (parseError) {
-        setError('Failed to parse API response: ' + parseError.message);
+      } else {
+        setError(data.error || 'Failed to train model');
         setModelStatus('Training failed');
       }
     } catch (err) {
       setError('Network error: ' + err.message);
       setModelStatus('Training failed');
     }
-  };
+};
   
-  // Improved load models function
+  // Load existing models and team data
   const loadModels = async () => {
     setModelStatus('Loading models...');
     setError('');
     
     try {
       const response = await fetch(`${API_URL}/load_models`);
-      const responseText = await response.text();
+      const data = await response.json();
       
-      try {
-        const data = JSON.parse(responseText);
+      if (data.success) {
+        setModelStatus('Models loaded successfully!');
+        setTeams(data.teams);
         
-        if (data.success) {
-          setModelStatus('Models loaded successfully!');
-          setTeams(data.teams);
-          
-          // Set default selections
-          if (data.teams.length >= 2) {
-            setHomeTeam(data.teams[0]);
-            setAwayTeam(data.teams[1]);
-          }
-        } else {
-          console.warn('Failed to load models:', data.error || data.message);
-          setModelStatus('No models loaded');
-          fetchTeams(); // Try to at least get teams list
+        // Set default selections
+        if (data.teams.length >= 2) {
+          setHomeTeam(data.teams[0]);
+          setAwayTeam(data.teams[1]);
         }
-      } catch (parseError) {
-        console.error('Error parsing load_models response:', parseError);
-        setModelStatus('No models loaded');
+      } else {
         fetchTeams(); // Try to at least get teams list
+        setError(data.error || 'Failed to load models');
+        setModelStatus('No models loaded');
       }
     } catch (err) {
-      console.error('Network error loading models:', err);
-      setModelStatus('No models loaded');
       fetchTeams(); // Try to at least get teams list
+      setError('Network error: ' + err.message);
+      setModelStatus('No models loaded');
     }
   };
   
-  // Improved fetch teams function
+  // Fetch teams if models are already trained
   const fetchTeams = async () => {
     try {
       const response = await fetch(`${API_URL}/teams`);
-      const responseText = await response.text();
+      const data = await response.json();
       
-      try {
-        const data = JSON.parse(responseText);
+      if (data.success) {
+        setTeams(data.teams);
         
-        if (data.success) {
-          setTeams(data.teams);
-          
-          // Set default selections
-          if (data.teams.length >= 2) {
-            setHomeTeam(data.teams[0]);
-            setAwayTeam(data.teams[1]);
-          }
-          
-          setModelStatus('Models ready for prediction');
+        // Set default selections
+        if (data.teams.length >= 2) {
+          setHomeTeam(data.teams[0]);
+          setAwayTeam(data.teams[1]);
         }
-      } catch (parseError) {
-        console.error('Error parsing teams response:', parseError);
+        
+        setModelStatus('Models ready for prediction');
       }
     } catch (err) {
       console.error('Error fetching teams:', err);
@@ -233,8 +193,6 @@ const MatchPredictor = () => {
   const handlePredict = () => {
     if (homeTeam && awayTeam) {
       predictMatch(homeTeam, awayTeam, homeRedCards, awayRedCards);
-    } else {
-      setError('Please select both home and away teams');
     }
   };
   
@@ -261,7 +219,7 @@ const MatchPredictor = () => {
     return 'Draw';
   };
   
-  // Sample data for when API doesn't return real data
+  // Mock data for development - in a real app this would come from the API
   const sampleRegressionData = [
     { predicted: 1, actual: 1.2, index: 1 },
     { predicted: 2, actual: 1.8, index: 2 },
@@ -410,50 +368,50 @@ const MatchPredictor = () => {
     const minValue = Math.floor(Math.min(...allPredicted, ...allActual));
     const maxValue = Math.ceil(Math.max(...allPredicted, ...allActual));
 
-    // Add some padding
-    const axisMin = Math.max(0, minValue - 1);
-    const axisMax = maxValue + 1;
+// Add some padding
+  const axisMin = Math.max(0, minValue - 1);
+  const axisMax = maxValue + 1;
 
     return (
       <div className="mb-6">
         <h3 className="text-lg font-semibold mb-3">Prediction Accuracy</h3>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart
-              margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-            >
-              <CartesianGrid />
-              <XAxis
-                type="number"
-                dataKey="predicted"
-                name="Predicted"
-                unit=" goals"
-                domain={[axisMin, axisMax]}
-              />
-              <YAxis
-                type="number"
-                dataKey="actual"
-                name="Actual"
-                unit=" goals"
-                domain={[axisMin, axisMax]}
-              />
-              <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-              <Legend />
-              
-              {/* Predicted vs Actual scatter points */}
-              <Scatter name="Goals" data={regressionData} fill="#8884d8" />
-              
-              {/* Perfect line: Predicted == Actual */}
-              <Scatter
-                name="Perfect Prediction"
-                data={[
-                  { predicted: 0, actual: 0 },
-                  { predicted: 5, actual: 5 }
-                ]}
-                line={{ stroke: '#ff7300', strokeWidth: 2 }}
-                shape="none"
-              />
-            </ScatterChart>
+          <ScatterChart
+  margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+>
+  <CartesianGrid />
+  <XAxis
+  type="number"
+  dataKey="predicted"
+  name="Predicted"
+  unit=" goals"
+  domain={[axisMin, axisMax]}
+/>
+<YAxis
+  type="number"
+  dataKey="actual"
+  name="Actual"
+  unit=" goals"
+  domain={[axisMin, axisMax]}
+/>
+  <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+  <Legend />
+  
+  {/* Predicted vs Actual scatter points */}
+  <Scatter name="Goals" data={regressionData} fill="#8884d8" />
+  
+  {/* Perfect line: Predicted == Actual */}
+  <Scatter
+    name="Perfect Prediction"
+    data={[
+      { predicted: 0, actual: 0 },
+      { predicted: 5, actual: 5 }
+    ]}
+    line={{ stroke: '#ff7300', strokeWidth: 2 }}
+    shape="none"
+  />
+</ScatterChart>
           </ResponsiveContainer>
         </div>
         <div className="text-sm text-gray-600 text-center">
@@ -507,7 +465,6 @@ const MatchPredictor = () => {
                 value={homeTeam}
                 onChange={(e) => setHomeTeam(e.target.value)}
               >
-                <option value="">Select Home Team</option>
                 {teams.map(team => (
                   <option key={`home-${team}`} value={team}>{team}</option>
                 ))}
@@ -521,7 +478,6 @@ const MatchPredictor = () => {
                 value={awayTeam}
                 onChange={(e) => setAwayTeam(e.target.value)}
               >
-                <option value="">Select Away Team</option>
                 {teams.map(team => (
                   <option key={`away-${team}`} value={team}>{team}</option>
                 ))}
@@ -748,7 +704,7 @@ const MatchPredictor = () => {
       )}
       
       <div className="mt-6 text-center text-sm text-gray-500">
-        <p>Turkish Super League Match Predictor - v1.0.1</p>
+        
       </div>
     </div>
   );
