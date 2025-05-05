@@ -27,13 +27,11 @@ const MatchPredictor = () => {
   const predictMatch = async (home, away, homeRed, awayRed) => {
     setIsLoading(true);
     setError('');
-    
+  
     try {
       const response = await fetch(`${API_URL}/predict`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           homeTeam: home,
           awayTeam: away,
@@ -41,28 +39,29 @@ const MatchPredictor = () => {
           awayRedCards: awayRed
         }),
       });
-      console.log("[FETCH] Predicting match", home, "vs", away, "with red cards", homeRed, awayRed);
+  
       const data = await response.json();
-      
-      if (data.success) {
+      console.log("[DEBUG] API /predict response:", data);
+  
+      if (data.success && data.prediction) {
         const prediction = {
           ...data.prediction,
+          homeTeam: home,
+          awayTeam: away,
+          homeRedCards: homeRed,
+          awayRedCards: awayRed,
           timestamp: new Date().toLocaleString()
         };
-        
+  
         setCurrentPrediction(prediction);
         setPredictions(prev => [prediction, ...prev]);
-        
-        // When we have a prediction, fetch the statistical data
-        if (data.prediction) {
-          fetchStatisticalData(home, away);
-        }
+        fetchStatisticalData(home, away);
       } else {
-        setError(data.error || 'Failed to get prediction');
+        throw new Error(data.error || 'Prediction failed.');
       }
     } catch (err) {
-      setError('Network error: ' + err.message);
-      console.error("[ERROR] Prediction fetch failed:", err);
+      console.error("[ERROR] predictMatch:", err);
+      setError(err.message || 'Prediction error');
     } finally {
       setIsLoading(false);
     }

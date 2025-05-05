@@ -53,27 +53,30 @@ def train_models(dataset_path):
 
 # Preprocess the dataset
 def preprocess_data(df):
-    # Basic preprocessing
     df = df.copy()
     df = df.dropna(subset=['Home', 'Away', 'HomeGoals', 'AwayGoals'])
-    
-    # Ensure required columns exist
-    if 'HomeRedCards' not in df.columns:
-        df['HomeRedCards'] = 0
-    if 'AwayRedCards' not in df.columns:
-        df['AwayRedCards'] = 0
-    
+
+    # Rename to match frontend keys and prediction-time naming
+    df.rename(columns={
+        'Home': 'homeTeam',
+        'Away': 'awayTeam',
+        'HomeGoals': 'homeGoals',
+        'AwayGoals': 'awayGoals',
+        'HomeRedCards': 'homeRedCards',
+        'AwayRedCards': 'awayRedCards'
+    }, inplace=True)
+
+    if 'homeRedCards' not in df.columns:
+        df['homeRedCards'] = 0
+    if 'awayRedCards' not in df.columns:
+        df['awayRedCards'] = 0
+
     return df
 
-# Prepare features for prediction
 def prepare_features(df):
-    # One-hot encode team names
-    home_dummies = pd.get_dummies(df['Home'], prefix='home')
-    away_dummies = pd.get_dummies(df['Away'], prefix='away')
-    
-    # Combine features
-    features = pd.concat([home_dummies, away_dummies, df[['HomeRedCards', 'AwayRedCards']]], axis=1)
-    
+    home_dummies = pd.get_dummies(df['homeTeam'], prefix='home')
+    away_dummies = pd.get_dummies(df['awayTeam'], prefix='away')
+    features = pd.concat([home_dummies, away_dummies, df[['homeRedCards', 'awayRedCards']]], axis=1)
     return features
 
 # Load existing models
