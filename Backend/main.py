@@ -148,6 +148,7 @@ def load_existing_models():
     
 # Predict match result
 def predict_match(home_team, away_team, home_red_cards, away_red_cards):
+    print(f"[DEBUG] predict_match called with: home={home_team}, away={away_team}, red_cards={home_red_cards}-{away_red_cards}")
     if home_goals_model is None or away_goals_model is None:
         return False, "Models not loaded", None
     
@@ -322,6 +323,10 @@ def api_predict():
     home_red_cards = data.get('homeRedCards', 0)
     away_red_cards = data.get('awayRedCards', 0)
     
+
+    print("[API] /api/predict endpoint hit")
+    print("Received data:", data)
+
     if not home_team or not away_team:
         return jsonify({'success': False, 'error': 'Home team and away team are required'})
     

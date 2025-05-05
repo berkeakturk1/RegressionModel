@@ -41,7 +41,7 @@ const MatchPredictor = () => {
           awayRedCards: awayRed
         }),
       });
-      
+      console.log("[FETCH] Predicting match", home, "vs", away, "with red cards", homeRed, awayRed);
       const data = await response.json();
       
       if (data.success) {
@@ -62,6 +62,7 @@ const MatchPredictor = () => {
       }
     } catch (err) {
       setError('Network error: ' + err.message);
+      console.error("[ERROR] Prediction fetch failed:", err);
     } finally {
       setIsLoading(false);
     }
