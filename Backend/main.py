@@ -355,7 +355,13 @@ def api_get_stats():
             'error': result
         })
 
+
 if __name__ == '__main__':
-    # Try to load existing models on startup
     load_existing_models()
-    app.run(debug=True)
+    app.run(host='127.0.0.1', port=5000, debug=True)
+
+
+#if __name__ == '__main__':
+    # Try to load existing models on startup
+#    load_existing_models()
+#    app.run(debug=True)

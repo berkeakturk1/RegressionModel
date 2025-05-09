@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import _ from 'lodash';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter } from 'recharts';
 import './App.css';
-const API_URL = 'https://regressionmodel.duckdns.org/api';
+const API_URL = 'http://127.0.0.1:5000/api';
 
 const MatchPredictor = () => {
   // Original state
