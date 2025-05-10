@@ -1,0 +1,1 @@
+{"home_test_mse": 1.5745464662982651, "home_test_mae": 1.015960791654188, "home_test_r2": -0.1696670549625774, "away_test_mse": 1.3341221546380082, "away_test_mae": 0.8962559898173106, "away_test_r2": -0.18136399969889605, "test_size": 159, "train_size": 634}
